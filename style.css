@@ -1,0 +1,27 @@
+body {
+    font-family: Arial;
+    padding: 20px;
+}
+
+svg {
+    border: 1px solid #ccc;
+    margin-top: 20px;
+}
+
+circle {
+    fill: #4CAF50;
+    stroke: black;
+    stroke-width: 2;
+}
+
+line {
+    stroke: black;
+}
+
+text {
+    font-size: 14px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    fill: white;
+    font-weight: bold;
+}
