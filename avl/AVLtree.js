@@ -20,30 +20,30 @@ export class AVLTree {
     return node ? this.getHeight(node.left) - this.getHeight(node.right) : 0;
   }
 
-  rightRotate(y) {
-    const x = y.left;
-    const T2 = x.right;
+  rightRotate(old_root) {
+    const new_root = old_root.left; // 20
+    const subtree = new_root.right; // null 
 
-    x.right = y;
-    y.left = T2;
+    new_root.right = old_root; // null ?
+    old_root.left = subtree; // 20
 
-    y.height = 1 + Math.max(this.getHeight(y.left), this.getHeight(y.right));
-    x.height = 1 + Math.max(this.getHeight(x.left), this.getHeight(x.right));
+    old_root.height = 1 + Math.max(this.getHeight(old_root.left), this.getHeight(old_root.right));
+    new_root.height = 1 + Math.max(this.getHeight(new_root.left), this.getHeight(new_root.right));
 
-    return x;
+    return new_root;
   }
 
-  leftRotate(x) {
-    const y = x.right;
-    const T2 = y.left;
+  leftRotate(old_root) {
+    const new_root = old_root.right;
+    const subtree = new_root.left;
 
-    y.left = x;
-    x.right = T2;
+    new_root.left = old_root;
+    old_root.right = subtree;
 
-    x.height = 1 + Math.max(this.getHeight(x.left), this.getHeight(x.right));
-    y.height = 1 + Math.max(this.getHeight(y.left), this.getHeight(y.right));
+    old_root.height = 1 + Math.max(this.getHeight(old_root.left), this.getHeight(old_root.right));
+    new_root.height = 1 + Math.max(this.getHeight(new_root.left), this.getHeight(new_root.right));
 
-    return y;
+    return new_root;
   }
 
   insertNode(node, value) {
