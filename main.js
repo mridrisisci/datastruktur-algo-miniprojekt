@@ -12,7 +12,7 @@ const nextBtn = document.getElementById('nextBtn');
 
 let steps = [];
 let currentStep = -1;
-//handin
+
 function cloneTree(node) {
   if (!node) return null;
   return {
