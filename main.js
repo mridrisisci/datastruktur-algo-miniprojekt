@@ -18,6 +18,8 @@ let animationSteps = [];
 // Previous/Next.
 let history = [];
 let currentIndex = -1;
+// Track which rotation corresponds to which frame index
+let rotationInfo = [];
 
 // Simple layout function that assigns x/y positions to each logical node.
 // The AVL algorithm does not care about these coordinates – they are only
@@ -81,13 +83,18 @@ function updateNavButtons() {
 function renderSnapshot(snapshot) {
   renderer.reset();
   if (!snapshot) return;
+  
+  // Show rotation label if applicable
+  if (currentIndex >= 0 && rotationInfo[currentIndex] && rotationInfo[currentIndex].type) {
+    renderer.showRotationLabel(rotationInfo[currentIndex].type);
+  }
+  
   renderer.drawFromStoredPositions(snapshot);
 }
 
 // Build a series of intermediate frames for the latest
-// insertion based on animationSteps. Each frame is a full
-// cloned tree with node positions interpolated between
-// start (before rotation) and end (after rotation).
+// insertion based on animationSteps. Each rotation gets its own
+// set of frames so you can see LR, RL cases as two separate rotations.
 function buildFramesForLatestInsert() {
   const FRAMES_PER_ROTATION = 5;
 
@@ -96,11 +103,10 @@ function buildFramesForLatestInsert() {
 
   const finalSnapshot = cloneNode(tree.root);
 
-  // No rotations: just store the final state as a single frame
-  if (!animationSteps || animationSteps.length === 0) {
+  // No rotations: just store the final state
+  if (!tree.animationSteps || tree.animationSteps.length === 0) {
     history.push(finalSnapshot);
-    currentIndex = history.length - 1;
-    updateNavButtons();
+    rotationInfo.push({ type: null });
     return;
   }
 
@@ -120,43 +126,57 @@ function buildFramesForLatestInsert() {
 
   const finalIdMap = buildIdMap(finalSnapshot);
 
-  // For each logical rotation step, prepare movement info
-  const moves = animationSteps.map(step => ({
-    type: step.type,
-    nodes: step.nodes.map(nodeStep => {
-      const finalNode = finalIdMap.get(nodeStep.id);
-      const endX = finalNode ? finalNode.x : nodeStep.endX;
-      const endY = finalNode ? finalNode.y : nodeStep.endY;
-      return {
-        id: nodeStep.id,
-        startX: nodeStep.startX,
-        startY: nodeStep.startY,
-        endX,
-        endY
-      };
-    })
-  }));
+  // For double rotations (LR, RL), we need to handle intermediate positions
+  // tree.intermediateRoots contains snapshots after first rotation in LR/RL
+  let intermediateIndex = 0;
 
-  // Generate frames from t=0 (before rotation) to t=1 (after rotation)
-  for (let i = 0; i <= FRAMES_PER_ROTATION; i++) {
-    const t = i / FRAMES_PER_ROTATION;
-    const frameSnapshot = cloneNode(finalSnapshot);
-    const frameIdMap = buildIdMap(frameSnapshot);
+  // Process each rotation step
+  tree.animationSteps.forEach((step, stepIndex) => {
+    // Determine end positions for this rotation
+    let endSnapshot;
+    
+    // For the last rotation in a double rotation, use the intermediate tree
+    if (stepIndex > 0 && intermediateIndex < tree.intermediateRoots.length) {
+      endSnapshot = cloneNode(tree.intermediateRoots[intermediateIndex]);
+      intermediateIndex++;
+    } else {
+      // For single rotations or the last rotation of double rotation, use final
+      endSnapshot = finalSnapshot;
+    }
 
-    moves.forEach(move => {
-      move.nodes.forEach(m => {
+    const endIdMap = buildIdMap(endSnapshot);
+
+    const moveInfo = {
+      type: step.type,
+      nodes: step.nodes.map(nodeStep => {
+        const endNode = endIdMap.get(nodeStep.id);
+        return {
+          id: nodeStep.id,
+          startX: nodeStep.startX,
+          startY: nodeStep.startY,
+          endX: endNode ? endNode.x : nodeStep.startX,
+          endY: endNode ? endNode.y : nodeStep.startY
+        };
+      })
+    };
+
+    // Generate frames for this specific rotation: t=0 to t=1
+    for (let i = 0; i <= FRAMES_PER_ROTATION; i++) {
+      const t = i / FRAMES_PER_ROTATION;
+      const frameSnapshot = cloneNode(finalSnapshot);
+      const frameIdMap = buildIdMap(frameSnapshot);
+
+      moveInfo.nodes.forEach(m => {
         const node = frameIdMap.get(m.id);
         if (!node) return;
         node.x = m.startX + (m.endX - m.startX) * t;
         node.y = m.startY + (m.endY - m.startY) * t;
       });
-    });
 
-    history.push(frameSnapshot);
-  }
-
-  currentIndex = history.length - 1;
-  updateNavButtons();
+      history.push(frameSnapshot);
+      rotationInfo.push({ type: step.type, isIntermediateFrame: i < FRAMES_PER_ROTATION });
+    }
+  });
 }
 
 insertBtn.addEventListener('click', () => {
@@ -166,41 +186,37 @@ insertBtn.addEventListener('click', () => {
   // Perform logical insertion + possible rotations in the AVL tree
   tree.insert(value);
 
-  // Assign x/y positions to all nodes for the new tree structure
+  // Assign x/y positions to all nodes for the FINAL tree structure
   layoutTree(tree.root, 500, 40);
 
-  // Build animation steps with both start and end positions for each rotated node
-  animationSteps = tree.animationSteps.map(step => ({
-    type: step.type,
-    nodes: step.nodes.map(entry => ({
-      id: entry.node.id,
-      startX: entry.startX,
-      startY: entry.startY,
-      endX: entry.node.x,
-      endY: entry.node.y
-    }))
-  }));
+  // For LR/RL cases, also layout the intermediate roots
+  tree.intermediateRoots.forEach(root => {
+    layoutTree(root, 500, 40);
+  });
 
-  // Redraw lines and move node circles/text. Because we added CSS transitions
-  // in TreeRenderer, nodes that change position will glide smoothly.
+  // Reset history and rotation info for new insertion
+  history = [];
+  rotationInfo = [];
+
+  // Redraw the tree with final positions
   renderer.clear();
   renderer.drawNode(tree.root, 500, 40);
 
-  // Visually highlight which nodes participated in the rotation
-  animateSteps(animationSteps);
-
-  // Create a sequence of visual frames (including intermediate
-  // rotation positions) that the Previous/Next buttons can
-  // navigate step-by-step.
+  // Build animation frames for each rotation step
   buildFramesForLatestInsert();
+
+  // Move to the first frame after building history
+  if (history.length > 0) {
+    currentIndex = 0;
+    renderSnapshot(history[0]);
+    updateNavButtons();
+  }
 });
 
 prevBtn.addEventListener('click', () => {
   if (currentIndex <= 0) return;
   currentIndex--;
   const snapshot = history[currentIndex];
-  // Redraw exactly the stored frame (including intermediate
-  // rotation positions) without replaying the animation.
   renderSnapshot(snapshot);
   updateNavButtons();
 });

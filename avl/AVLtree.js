@@ -19,6 +19,8 @@ export class AVLTree {
     this.root = null;
     // Collected when a rotation happens and later used for SVG animation
     this.animationSteps = [];
+    // Used to track intermediate tree states during double rotations
+    this.intermediateRoots = [];
   }
 
   getHeight(node) {
@@ -47,7 +49,7 @@ export class AVLTree {
 
     /*
     eksemplet er med værdierne: 30,20,10 
-    old root = 30 -> height = 1 + (0,0) === height is 1
+    old root 6= 30 -> height = 1 + (0,0) === height is 1
     new root = 20 -> height = 1 + (1,1) === height is 2
     */
     old_root.height = 1 + Math.max(this.getHeight(old_root.left), this.getHeight(old_root.right)); 
@@ -104,27 +106,48 @@ export class AVLTree {
     and the visual layer can later use animationSteps to show it.
     */
     if (balance > 1 && value < node.left.value) {
+      // LL case: single right rotation
       return this.rightRotate(node);
     }
     if (balance < -1 && value > node.right.value) {
+      // RR case: single left rotation
       return this.leftRotate(node);
     }
     if (balance > 1 && value > node.left.value) {
+      // LR case: left rotation on left child, then right rotation on node
       node.left = this.leftRotate(node.left);
+      // After first rotation in LR case, save the intermediate tree state
+      this.intermediateRoots.push(this.cloneTree(node));
       return this.rightRotate(node);
     }
     if (balance < -1 && value < node.right.value) {
+      // RL case: right rotation on right child, then left rotation on node
       node.right = this.rightRotate(node.right);
+      // After first rotation in RL case, save the intermediate tree state
+      this.intermediateRoots.push(this.cloneTree(node));
       return this.leftRotate(node);
     }
 
     return node;
   }
 
+  cloneTree(node) {
+    if (!node) return null;
+    const cloned = new AVLNode(node.value);
+    cloned.id = node.id;
+    cloned.height = node.height;
+    cloned.x = node.x;
+    cloned.y = node.y;
+    cloned.left = this.cloneTree(node.left);
+    cloned.right = this.cloneTree(node.right);
+    return cloned;
+  }
+
   insert(value) {
     // receives value from front-end "insert" button
     // Clear any previous rotation steps before a new insertion
     this.animationSteps = [];
+    this.intermediateRoots = [];
     this.root = this.insertNode(this.root, value);
   }
 }

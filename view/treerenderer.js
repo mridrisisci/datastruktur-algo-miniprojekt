@@ -3,6 +3,8 @@ export class TreeRenderer {
     this.svg = svgElement;
     // Keep a reference to SVG elements per logical AVL node id
     this.nodeElements = new Map();
+    // Label element for showing rotation type
+    this.rotationLabel = null;
   }
 
   clear() {
@@ -17,6 +19,24 @@ export class TreeRenderer {
   reset() {
     this.svg.innerHTML = "";
     this.nodeElements.clear();
+    this.rotationLabel = null;
+  }
+
+  // Show a label indicating which rotation type is being animated
+  showRotationLabel(rotationType) {
+    if (this.rotationLabel) {
+      this.rotationLabel.remove();
+    }
+    
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", 50);
+    label.setAttribute("y", 30);
+    label.setAttribute("font-size", "18");
+    label.setAttribute("fill", "#ff5722");
+    label.setAttribute("font-weight", "bold");
+    label.textContent = `Rotation: ${rotationType.toUpperCase()}`;
+    this.svg.appendChild(label);
+    this.rotationLabel = label;
   }
 
   drawNode(node, x, y, levelGap = 60) {
