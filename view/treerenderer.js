@@ -1,130 +1,236 @@
 export class TreeRenderer {
-  constructor(svgElement) {
-    this.svg = svgElement;
-    // Keep a reference to SVG elements per logical AVL node id
-    this.nodeElements = new Map();
-    // Label element for showing rotation type
-    this.rotationLabel = null;
+  constructor(svg) {
+    this.svg = svg;
+    this.nodeRadius = 25;
   }
 
-  clear() {
-    // Only clear connecting lines so <g> node elements can be reused
-    const lines = this.svg.querySelectorAll('line');
-    lines.forEach(line => line.remove());
-  }
-
-  // Completely reset the SVG and forget all cached node elements.
-  // Used when navigating backwards/forwards in history where we
-  // simply want to redraw the tree from scratch.
+  /**
+   * Clear the SVG canvas
+   */
   reset() {
-    this.svg.innerHTML = "";
-    this.nodeElements.clear();
-    this.rotationLabel = null;
-  }
-
-  // Show a label indicating which rotation type is being animated
-  showRotationLabel(rotationType) {
-    if (this.rotationLabel) {
-      this.rotationLabel.remove();
+    while (this.svg.firstChild) {
+      this.svg.removeChild(this.svg.firstChild);
     }
-    
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    label.setAttribute("x", 50);
-    label.setAttribute("y", 30);
-    label.setAttribute("font-size", "18");
-    label.setAttribute("fill", "#ff5722");
-    label.setAttribute("font-weight", "bold");
-    label.textContent = `Rotation: ${rotationType.toUpperCase()}`;
-    this.svg.appendChild(label);
-    this.rotationLabel = label;
   }
 
-  drawNode(node, x, y, levelGap = 60) {
+  /**
+   * Create an SVG element with attributes
+   * @param {string} tag 
+   * @param {object} attrs 
+   * @returns {SVGElement}
+   */
+  createSVGElement(tag, attrs = {}) {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      element.setAttribute(key, value);
+    }
+    return element;
+  }
+
+  /**
+   * Draw a line between two points
+   * @param {number} x1 
+   * @param {number} y1 
+   * @param {number} x2 
+   * @param {number} y2 
+   * @param {string} color 
+   */
+  drawLine(x1, y1, x2, y2, color = '#666') {
+    const line = this.createSVGElement('line', {
+      x1: x1,
+      y1: y1,
+      x2: x2,
+      y2: y2,
+      stroke: color,
+      'stroke-width': 2
+    });
+    this.svg.appendChild(line);
+  }
+
+  /**
+   * Draw a circle (node)
+   * @param {number} x 
+   * @param {number} y 
+   * @param {string} fillColor 
+   * @param {string} strokeColor 
+   */
+  drawCircle(x, y, fillColor = '#4CAF50', strokeColor = '#2E7D32') {
+    const circle = this.createSVGElement('circle', {
+      cx: x,
+      cy: y,
+      r: this.nodeRadius,
+      fill: fillColor,
+      stroke: strokeColor,
+      'stroke-width': 2
+    });
+    this.svg.appendChild(circle);
+  }
+
+  /**
+   * Draw text at a position
+   * @param {number} x 
+   * @param {number} y 
+   * @param {string} text 
+   * @param {string} color 
+   */
+  drawText(x, y, text, color = 'white') {
+    const textElement = this.createSVGElement('text', {
+      x: x,
+      y: y + 5,
+      'text-anchor': 'middle',
+      'font-size': '16',
+      'font-weight': 'bold',
+      fill: color
+    });
+    textElement.textContent = text;
+    this.svg.appendChild(textElement);
+  }
+
+  /**
+   * Draw a node with its value
+   * @param {object} node 
+   */
+  drawNode(node) {
     if (!node) return;
 
-    // Store calculated layout position on the node for later animation use
-    node.x = x;
-    node.y = y;
-
-    const leftX = x - levelGap;
-    const rightX = x + levelGap;
-    const nextY = y + 80;
-
-    if (node.left) {
-      this.drawLine(x, y, leftX, nextY);
-      this.drawNode(node.left, leftX, nextY, levelGap * 0.7);
-    }
-    if (node.right) {
-      this.drawLine(x, y, rightX, nextY);
-      this.drawNode(node.right, rightX, nextY, levelGap * 0.7);
-    }
-
-    this.drawOrUpdateNode(node);
-  }
-
-  // Draw the entire tree assuming that each node already has
-  // an x/y position assigned. This is used when stepping
-  // through precomputed animation frames.
-  drawFromStoredPositions(node) {
-    if (!node) return;
-
+    // Draw edges to children first (so they appear behind nodes)
     if (node.left) {
       this.drawLine(node.x, node.y, node.left.x, node.left.y);
-      this.drawFromStoredPositions(node.left);
     }
     if (node.right) {
       this.drawLine(node.x, node.y, node.right.x, node.right.y);
-      this.drawFromStoredPositions(node.right);
     }
 
-    this.drawOrUpdateNode(node);
+    // Draw the node circle
+    this.drawCircle(node.x, node.y);
+
+    // Draw the value text
+    this.drawText(node.x, node.y, node.value.toString());
+
+    // Recursively draw children
+    if (node.left) this.drawNode(node.left);
+    if (node.right) this.drawNode(node.right);
   }
 
-  drawOrUpdateNode(node) {
-    let group = this.nodeElements.get(node.id);
+  /**
+   * Draw the tree from stored positions (used for animation snapshots)
+   * @param {object} root 
+   */
+  drawFromStoredPositions(root) {
+    if (!root) return;
 
-    if (!group) {
-      group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      group.setAttribute("data-node-id", node.id);
+    const queue = [root];
+    const edges = [];
+    const nodes = [];
 
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle.setAttribute("r", 20);
-      // Animate movement when cx/cy change
-      circle.style.transition = "cx 0.4s ease, cy 0.4s ease";
+    // Collect all edges and nodes
+    while (queue.length > 0) {
+      const node = queue.shift();
+      nodes.push(node);
 
-      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.textContent = node.value;
-      // Animate movement of the text label together with the circle
-      label.style.transition = "x 0.4s ease, y 0.4s ease";
-
-      group.appendChild(circle);
-      group.appendChild(label);
-      this.svg.appendChild(group);
-      this.nodeElements.set(node.id, group);
+      if (node.left) {
+        edges.push({ from: node, to: node.left });
+        queue.push(node.left);
+      }
+      if (node.right) {
+        edges.push({ from: node, to: node.right });
+        queue.push(node.right);
+      }
     }
 
-    const circle = group.querySelector('circle');
-    const label = group.querySelector('text');
+    // Draw edges first
+    edges.forEach(edge => {
+      this.drawLine(edge.from.x, edge.from.y, edge.to.x, edge.to.y);
+    });
 
-    if (circle) {
-      circle.setAttribute("cx", node.x);
-      circle.setAttribute("cy", node.y);
-    }
-
-    if (label) {
-      label.setAttribute("x", node.x);
-      // Small offset so the number is vertically centered
-      label.setAttribute("y", node.y + 5);
-      label.textContent = node.value;
-    }
+    // Draw nodes on top
+    nodes.forEach(node => {
+      this.drawCircle(node.x, node.y);
+      this.drawText(node.x, node.y, node.value.toString());
+    });
   }
 
-  drawLine(x1, y1, x2, y2) {
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x1);
-    line.setAttribute("y1", y1);
-    line.setAttribute("x2", x2);
-    line.setAttribute("y2", y2);
-    this.svg.appendChild(line);
+  /**
+   * Show a rotation label on the canvas
+   * @param {string} label 
+   */
+  showRotationLabel(label) {
+    if (!label) return;
+
+    const rect = this.createSVGElement('rect', {
+      x: 10,
+      y: 10,
+      width: 200,
+      height: 40,
+      fill: '#2196F3',
+      rx: 5,
+      ry: 5
+    });
+    this.svg.appendChild(rect);
+
+    const textElement = this.createSVGElement('text', {
+      x: 110,
+      y: 35,
+      'text-anchor': 'middle',
+      'font-size': '18',
+      'font-weight': 'bold',
+      fill: 'white'
+    });
+    textElement.textContent = label;
+    this.svg.appendChild(textElement);
+  }
+
+  /**
+   * Highlight a specific node
+   * @param {object} node 
+   * @param {string} color 
+   */
+  highlightNode(node, color = '#FF5722') {
+    if (!node) return;
+    this.drawCircle(node.x, node.y, color, '#D84315');
+    this.drawText(node.x, node.y, node.value.toString());
+  }
+
+  /**
+   * Draw height information next to nodes (for debugging)
+   * @param {object} node 
+   */
+  drawHeightInfo(node) {
+    if (!node) return;
+
+    const textElement = this.createSVGElement('text', {
+      x: node.x + this.nodeRadius + 10,
+      y: node.y,
+      'font-size': '12',
+      fill: '#666'
+    });
+    textElement.textContent = `h:${node.height}`;
+    this.svg.appendChild(textElement);
+
+    if (node.left) this.drawHeightInfo(node.left);
+    if (node.right) this.drawHeightInfo(node.right);
+  }
+
+  /**
+   * Draw balance factor next to nodes (for debugging)
+   * @param {object} node 
+   * @param {function} getBalanceFactor 
+   */
+  drawBalanceFactorInfo(node, getBalanceFactor) {
+    if (!node) return;
+
+    const bf = getBalanceFactor(node);
+    const textElement = this.createSVGElement('text', {
+      x: node.x - this.nodeRadius - 10,
+      y: node.y,
+      'font-size': '12',
+      'text-anchor': 'end',
+      fill: Math.abs(bf) > 1 ? '#F44336' : '#666'
+    });
+    textElement.textContent = `bf:${bf}`;
+    this.svg.appendChild(textElement);
+
+    if (node.left) this.drawBalanceFactorInfo(node.left, getBalanceFactor);
+    if (node.right) this.drawBalanceFactorInfo(node.right, getBalanceFactor);
   }
 }
