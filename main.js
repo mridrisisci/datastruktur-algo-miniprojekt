@@ -10,9 +10,6 @@ const insertBtn = document.getElementById('insertBtn');
 const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 
-// Collected animation steps for the most recent rotation
-let animationSteps = [];
-
 // History of visual frames (including intermediate rotation
 // positions) so the user can step backwards/forwards with
 // Previous/Next.
@@ -86,17 +83,20 @@ function renderSnapshot(snapshot) {
   
   // Show rotation label if applicable
   if (currentIndex >= 0 && rotationInfo[currentIndex] && rotationInfo[currentIndex].type) {
-    renderer.showRotationLabel(rotationInfo[currentIndex].type);
+    const info = rotationInfo[currentIndex];
+    const label = info.phase ? `${info.type} (${info.phase})` : info.type;
+    renderer.showRotationLabel(label);
   }
   
   renderer.drawFromStoredPositions(snapshot);
 }
 
 // Build a series of intermediate frames for the latest
-// insertion based on animationSteps. Each rotation gets its own
-// set of frames so you can see LR, RL cases as two separate rotations.
+// insertion based on animationSteps. Each rotation is split into
+// phases (before, mid, after) so double rotations (LR/RL) show two
+// distinct rotations.
 function buildFramesForLatestInsert() {
-  const FRAMES_PER_ROTATION = 5;
+  const FRAMES_PER_STEP = 4;
 
   // If there is no root yet, nothing to record
   if (!tree.root) return;
@@ -126,47 +126,40 @@ function buildFramesForLatestInsert() {
 
   const finalIdMap = buildIdMap(finalSnapshot);
 
-  // For double rotations (LR, RL), we need to handle intermediate positions
-  // tree.intermediateRoots contains snapshots after first rotation in LR/RL
+  // Prepare intermediate snapshots (after first rotation in LR/RL)
+  const intermediateSnapshots = tree.intermediateRoots.map(root => cloneNode(root));
+
+  // Process each recorded animation step (before/mid/after for each rotation)
   let intermediateIndex = 0;
 
-  // Process each rotation step
-  tree.animationSteps.forEach((step, stepIndex) => {
-    // Determine end positions for this rotation
-    let endSnapshot;
-    
-    // For the last rotation in a double rotation, use the intermediate tree
-    if (stepIndex > 0 && intermediateIndex < tree.intermediateRoots.length) {
-      endSnapshot = cloneNode(tree.intermediateRoots[intermediateIndex]);
-      intermediateIndex++;
-    } else {
-      // For single rotations or the last rotation of double rotation, use final
-      endSnapshot = finalSnapshot;
-    }
+  tree.animationSteps.forEach(step => {
+    // Decide which snapshot represents the target layout for this step
+    const targetSnapshot = step.target === 'intermediate'
+      ? (intermediateSnapshots[intermediateIndex] || finalSnapshot)
+      : finalSnapshot;
 
-    const endIdMap = buildIdMap(endSnapshot);
+    const targetIdMap = buildIdMap(targetSnapshot);
 
-    const moveInfo = {
-      type: step.type,
-      nodes: step.nodes.map(nodeStep => {
-        const endNode = endIdMap.get(nodeStep.id);
-        return {
-          id: nodeStep.id,
-          startX: nodeStep.startX,
-          startY: nodeStep.startY,
-          endX: endNode ? endNode.x : nodeStep.startX,
-          endY: endNode ? endNode.y : nodeStep.startY
-        };
-      })
-    };
+    // For before/mid we keep nodes at start; for after we move to target layout
+    const moveInfo = step.nodes.map(entry => {
+      const endNode = targetIdMap.get(entry.node.id);
+      const stayStill = step.phase !== 'after';
+      return {
+        id: entry.node.id,
+        startX: entry.startX,
+        startY: entry.startY,
+        endX: stayStill ? entry.startX : (endNode ? endNode.x : entry.startX),
+        endY: stayStill ? entry.startY : (endNode ? endNode.y : entry.startY)
+      };
+    });
 
-    // Generate frames for this specific rotation: t=0 to t=1
-    for (let i = 0; i <= FRAMES_PER_ROTATION; i++) {
-      const t = i / FRAMES_PER_ROTATION;
-      const frameSnapshot = cloneNode(finalSnapshot);
+    for (let i = 0; i <= FRAMES_PER_STEP; i++) {
+      const t = i / FRAMES_PER_STEP;
+      // Use the target snapshot as the base so structure matches the phase
+      const frameSnapshot = cloneNode(targetSnapshot);
       const frameIdMap = buildIdMap(frameSnapshot);
 
-      moveInfo.nodes.forEach(m => {
+      moveInfo.forEach(m => {
         const node = frameIdMap.get(m.id);
         if (!node) return;
         node.x = m.startX + (m.endX - m.startX) * t;
@@ -174,7 +167,7 @@ function buildFramesForLatestInsert() {
       });
 
       history.push(frameSnapshot);
-      rotationInfo.push({ type: step.type, isIntermediateFrame: i < FRAMES_PER_ROTATION });
+      rotationInfo.push({ type: step.rotation, phase: step.phase });
     }
   });
 }
