@@ -163,6 +163,18 @@ export class TreeRenderer {
         strokeColor = '#C62828';
       }
 
+      // Rotation markers (visual only; structure stays valid)
+      if (node.isRotationPivot) {
+        strokeColor = '#7E57C2'; // purple border for pivot
+        fillColor = '#B39DDB';
+      } else if (node.isRotationChild) {
+        strokeColor = '#FB8C00'; // orange border for child
+        fillColor = '#FFD180';
+      } else if (node.isRotationExtra) {
+        strokeColor = '#29B6F6'; // light blue border for extra/grandchild
+        fillColor = '#B3E5FC';
+      }
+
       this.drawCircle(node.x, node.y, fillColor, strokeColor);
       this.drawText(node.x, node.y, node.value.toString());
     });

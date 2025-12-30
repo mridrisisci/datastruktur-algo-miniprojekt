@@ -19,6 +19,9 @@ export class AVLTree {
     if (node.isSearchCurrent) cloned.isSearchCurrent = true;
     if (node.isSearchFound) cloned.isSearchFound = true;
     if (node.isBeingDeleted) cloned.isBeingDeleted = true;
+    if (node.isRotationPivot) cloned.isRotationPivot = true;
+    if (node.isRotationChild) cloned.isRotationChild = true;
+    if (node.isRotationExtra) cloned.isRotationExtra = true;
     return cloned;
   }
 
@@ -30,35 +33,25 @@ export class AVLTree {
 
   createIntermediateRightRotation(oldRoot) {
     const snapshot = this.cloneTree(this.root);
-    const target = this.findNodeById(snapshot, oldRoot.id);
-    if (!target || !target.left) return snapshot;
-
-    const leftChild = target.left;
-    const rightSubtreeOfLeft = leftChild.right;
-    const rightOfOld = target.right;
-
-    const duplicateOld = this.cloneTree(oldRoot);
-    duplicateOld.left = rightSubtreeOfLeft;
-    duplicateOld.right = rightOfOld;
-
-    leftChild.right = duplicateOld;
+    const pivot = this.findNodeById(snapshot, oldRoot.id);
+    if (!pivot || !pivot.left) return snapshot;
+    pivot.isRotationPivot = true;
+    const child = this.findNodeById(snapshot, oldRoot.left.id);
+    if (child) child.isRotationChild = true;
+    const extra = oldRoot.left && oldRoot.left.right ? this.findNodeById(snapshot, oldRoot.left.right.id) : null;
+    if (extra) extra.isRotationExtra = true;
     return snapshot;
   }
 
   createIntermediateLeftRotation(oldRoot) {
     const snapshot = this.cloneTree(this.root);
-    const target = this.findNodeById(snapshot, oldRoot.id);
-    if (!target || !target.right) return snapshot;
-
-    const rightChild = target.right;
-    const leftSubtreeOfRight = rightChild.left;
-    const leftOfOld = target.left;
-
-    const duplicateOld = this.cloneTree(oldRoot);
-    duplicateOld.left = leftOfOld;
-    duplicateOld.right = leftSubtreeOfRight;
-
-    rightChild.left = duplicateOld;
+    const pivot = this.findNodeById(snapshot, oldRoot.id);
+    if (!pivot || !pivot.right) return snapshot;
+    pivot.isRotationPivot = true;
+    const child = this.findNodeById(snapshot, oldRoot.right.id);
+    if (child) child.isRotationChild = true;
+    const extra = oldRoot.right && oldRoot.right.left ? this.findNodeById(snapshot, oldRoot.right.left.id) : null;
+    if (extra) extra.isRotationExtra = true;
     return snapshot;
   }
 
@@ -155,31 +148,21 @@ export class AVLTree {
    * @returns {AVLNode} New root after rotation
    */
   rotateLeftRight(z) {
-    const before1 = this.cloneTree(this.root);
+    // In-progress snapshot with markers only (no pointer changes)
+    const mark = this.createIntermediateRightRotation(z);
+    this.animationSteps.push({
+      label: 'Left-Right Rotation - In Progress',
+      after: mark
+    });
+
+    // Perform rotations atomically on the logical tree
     z.left = this.rotateLeft(z.left);
-    if (this.root === z) this.root = z;
-    const after1 = this.cloneTree(this.root);
-    this.animationSteps.push({
-      label: 'Left Rotation (LR - Step 1)',
-      before: before1,
-      after: after1
-    });
-
-    const before2 = this.cloneTree(this.root);
-    const intermediate = this.createIntermediateRightRotation(z);
-    this.animationSteps.push({
-      label: 'Right Rotation (LR - In Progress)',
-      before: before2,
-      after: intermediate
-    });
-
     const result = this.rotateRight(z);
     if (this.root === z) this.root = result;
-    const after2 = this.cloneTree(this.root);
+    const after = this.cloneTree(this.root);
     this.animationSteps.push({
-      label: 'Right Rotation (LR - Complete)',
-      before: intermediate,
-      after: after2
+      label: 'Left-Right Rotation - Complete',
+      after
     });
 
     return result;
@@ -199,31 +182,21 @@ export class AVLTree {
    * @returns {AVLNode} New root after rotation
    */
   rotateRightLeft(z) {
-    const before1 = this.cloneTree(this.root);
+    // In-progress snapshot with markers only (no pointer changes)
+    const mark = this.createIntermediateLeftRotation(z);
+    this.animationSteps.push({
+      label: 'Right-Left Rotation - In Progress',
+      after: mark
+    });
+
+    // Perform rotations atomically on the logical tree
     z.right = this.rotateRight(z.right);
-    if (this.root === z) this.root = z;
-    const after1 = this.cloneTree(this.root);
-    this.animationSteps.push({
-      label: 'Right Rotation (RL - Step 1)',
-      before: before1,
-      after: after1
-    });
-
-    const before2 = this.cloneTree(this.root);
-    const intermediate = this.createIntermediateLeftRotation(z);
-    this.animationSteps.push({
-      label: 'Left Rotation (RL - In Progress)',
-      before: before2,
-      after: intermediate
-    });
-
     const result = this.rotateLeft(z);
     if (this.root === z) this.root = result;
-    const after2 = this.cloneTree(this.root);
+    const after = this.cloneTree(this.root);
     this.animationSteps.push({
-      label: 'Left Rotation (RL - Complete)',
-      before: intermediate,
-      after: after2
+      label: 'Right-Left Rotation - Complete',
+      after
     });
 
     return result;
@@ -246,21 +219,18 @@ export class AVLTree {
       if (this.getBalanceFactor(node.left) < 0) {
         return this.rotateLeftRight(node);
       }
-      // Left-Left case - Right Rotation with intermediate step
-      const before = this.cloneTree(this.root);
-      const intermediate = this.createIntermediateRightRotation(node);
+      // Left-Left case - marker-only snapshot, then atomic rotation
+      const mark = this.createIntermediateRightRotation(node);
       this.animationSteps.push({
-        label: 'Right Rotation - In Progress',
-        before,
-        after: intermediate
+        label: 'Right Rotation (LL) - In Progress',
+        after: mark
       });
 
       const result = this.rotateRight(node);
       if (this.root === node) this.root = result;
       const after = this.cloneTree(this.root);
       this.animationSteps.push({
-        label: 'Right Rotation - Complete',
-        before: intermediate,
+        label: 'Right Rotation (LL) - Complete',
         after
       });
       return result;
@@ -272,21 +242,18 @@ export class AVLTree {
       if (this.getBalanceFactor(node.right) > 0) {
         return this.rotateRightLeft(node);
       }
-      // Right-Right case - Left Rotation with intermediate step
-      const before = this.cloneTree(this.root);
-      const intermediate = this.createIntermediateLeftRotation(node);
+      // Right-Right case - marker-only snapshot, then atomic rotation
+      const mark = this.createIntermediateLeftRotation(node);
       this.animationSteps.push({
-        label: 'Left Rotation - In Progress',
-        before,
-        after: intermediate
+        label: 'Left Rotation (RR) - In Progress',
+        after: mark
       });
 
       const result = this.rotateLeft(node);
       if (this.root === node) this.root = result;
       const after = this.cloneTree(this.root);
       this.animationSteps.push({
-        label: 'Left Rotation - Complete',
-        before: intermediate,
+        label: 'Left Rotation (RR) - Complete',
         after
       });
       return result;
