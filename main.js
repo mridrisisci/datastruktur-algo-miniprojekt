@@ -121,6 +121,7 @@ insertBtn.onclick = () => {
   const centerX = 300;
   const startY = 40;
 
+  // Build the initial unbalanced BST (no rotations) from all inserted values
   let unbalancedRoot = null;
   insertedValues.forEach(val => {
     unbalancedRoot = bstInsert(unbalancedRoot, val);
@@ -129,11 +130,12 @@ insertBtn.onclick = () => {
   history.push(clone(unbalancedRoot));
   labels.push('');
 
+  // Use the before/after snapshots from the animation steps
   tree.animationSteps.forEach(step => {
-    if (step.treeSnapshot) {
-      layout(step.treeSnapshot, centerX, startY);
-      history.push(clone(step.treeSnapshot));
-      labels.push(`${step.rotation} - ${step.phase}`);
+    if (step.after) {
+      layout(step.after, centerX, startY);
+      history.push(clone(step.after));
+      labels.push(step.label);
     }
   });
 

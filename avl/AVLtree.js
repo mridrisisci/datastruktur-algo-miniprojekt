@@ -8,21 +8,13 @@ export class AVLTree {
 
   cloneTree(node) {
     if (!node) return null;
-    const cloned = {
+    return {
       value: node.value,
       id: node.id,
       height: node.height,
       left: this.cloneTree(node.left),
       right: this.cloneTree(node.right)
     };
-    // Preserve marking properties for visualization
-    if (node.isSearchCurrent) cloned.isSearchCurrent = true;
-    if (node.isSearchFound) cloned.isSearchFound = true;
-    if (node.isBeingDeleted) cloned.isBeingDeleted = true;
-    if (node.isRotationPivot) cloned.isRotationPivot = true;
-    if (node.isRotationChild) cloned.isRotationChild = true;
-    if (node.isRotationExtra) cloned.isRotationExtra = true;
-    return cloned;
   }
 
   findNodeById(node, id) {
@@ -33,25 +25,35 @@ export class AVLTree {
 
   createIntermediateRightRotation(oldRoot) {
     const snapshot = this.cloneTree(this.root);
-    const pivot = this.findNodeById(snapshot, oldRoot.id);
-    if (!pivot || !pivot.left) return snapshot;
-    pivot.isRotationPivot = true;
-    const child = this.findNodeById(snapshot, oldRoot.left.id);
-    if (child) child.isRotationChild = true;
-    const extra = oldRoot.left && oldRoot.left.right ? this.findNodeById(snapshot, oldRoot.left.right.id) : null;
-    if (extra) extra.isRotationExtra = true;
+    const target = this.findNodeById(snapshot, oldRoot.id);
+    if (!target || !target.left) return snapshot;
+
+    const leftChild = target.left;
+    const rightSubtreeOfLeft = leftChild.right;
+    const rightOfOld = target.right;
+
+    const duplicateOld = this.cloneTree(oldRoot);
+    duplicateOld.left = rightSubtreeOfLeft;
+    duplicateOld.right = rightOfOld;
+
+    leftChild.right = duplicateOld;
     return snapshot;
   }
 
   createIntermediateLeftRotation(oldRoot) {
     const snapshot = this.cloneTree(this.root);
-    const pivot = this.findNodeById(snapshot, oldRoot.id);
-    if (!pivot || !pivot.right) return snapshot;
-    pivot.isRotationPivot = true;
-    const child = this.findNodeById(snapshot, oldRoot.right.id);
-    if (child) child.isRotationChild = true;
-    const extra = oldRoot.right && oldRoot.right.left ? this.findNodeById(snapshot, oldRoot.right.left.id) : null;
-    if (extra) extra.isRotationExtra = true;
+    const target = this.findNodeById(snapshot, oldRoot.id);
+    if (!target || !target.right) return snapshot;
+
+    const rightChild = target.right;
+    const leftSubtreeOfRight = rightChild.left;
+    const leftOfOld = target.left;
+
+    const duplicateOld = this.cloneTree(oldRoot);
+    duplicateOld.left = leftOfOld;
+    duplicateOld.right = leftSubtreeOfRight;
+
+    rightChild.left = duplicateOld;
     return snapshot;
   }
 
@@ -148,21 +150,31 @@ export class AVLTree {
    * @returns {AVLNode} New root after rotation
    */
   rotateLeftRight(z) {
-    // In-progress snapshot with markers only (no pointer changes)
-    const mark = this.createIntermediateRightRotation(z);
+    const before1 = this.cloneTree(this.root);
+    z.left = this.rotateLeft(z.left);
+    if (this.root === z) this.root = z;
+    const after1 = this.cloneTree(this.root);
     this.animationSteps.push({
-      label: 'Left-Right Rotation - In Progress',
-      after: mark
+      label: 'Left Rotation (LR - Step 1)',
+      before: before1,
+      after: after1
     });
 
-    // Perform rotations atomically on the logical tree
-    z.left = this.rotateLeft(z.left);
+    const before2 = this.cloneTree(this.root);
+    const intermediate = this.createIntermediateRightRotation(z);
+    this.animationSteps.push({
+      label: 'Right Rotation (LR - In Progress)',
+      before: before2,
+      after: intermediate
+    });
+
     const result = this.rotateRight(z);
     if (this.root === z) this.root = result;
-    const after = this.cloneTree(this.root);
+    const after2 = this.cloneTree(this.root);
     this.animationSteps.push({
-      label: 'Left-Right Rotation - Complete',
-      after
+      label: 'Right Rotation (LR - Complete)',
+      before: intermediate,
+      after: after2
     });
 
     return result;
@@ -182,21 +194,31 @@ export class AVLTree {
    * @returns {AVLNode} New root after rotation
    */
   rotateRightLeft(z) {
-    // In-progress snapshot with markers only (no pointer changes)
-    const mark = this.createIntermediateLeftRotation(z);
+    const before1 = this.cloneTree(this.root);
+    z.right = this.rotateRight(z.right);
+    if (this.root === z) this.root = z;
+    const after1 = this.cloneTree(this.root);
     this.animationSteps.push({
-      label: 'Right-Left Rotation - In Progress',
-      after: mark
+      label: 'Right Rotation (RL - Step 1)',
+      before: before1,
+      after: after1
     });
 
-    // Perform rotations atomically on the logical tree
-    z.right = this.rotateRight(z.right);
+    const before2 = this.cloneTree(this.root);
+    const intermediate = this.createIntermediateLeftRotation(z);
+    this.animationSteps.push({
+      label: 'Left Rotation (RL - In Progress)',
+      before: before2,
+      after: intermediate
+    });
+
     const result = this.rotateLeft(z);
     if (this.root === z) this.root = result;
-    const after = this.cloneTree(this.root);
+    const after2 = this.cloneTree(this.root);
     this.animationSteps.push({
-      label: 'Right-Left Rotation - Complete',
-      after
+      label: 'Left Rotation (RL - Complete)',
+      before: intermediate,
+      after: after2
     });
 
     return result;
@@ -219,18 +241,21 @@ export class AVLTree {
       if (this.getBalanceFactor(node.left) < 0) {
         return this.rotateLeftRight(node);
       }
-      // Left-Left case - marker-only snapshot, then atomic rotation
-      const mark = this.createIntermediateRightRotation(node);
+      // Left-Left case - Right Rotation with intermediate step
+      const before = this.cloneTree(this.root);
+      const intermediate = this.createIntermediateRightRotation(node);
       this.animationSteps.push({
-        label: 'Right Rotation (LL) - In Progress',
-        after: mark
+        label: 'Right Rotation - In Progress',
+        before,
+        after: intermediate
       });
 
       const result = this.rotateRight(node);
       if (this.root === node) this.root = result;
       const after = this.cloneTree(this.root);
       this.animationSteps.push({
-        label: 'Right Rotation (LL) - Complete',
+        label: 'Right Rotation - Complete',
+        before: intermediate,
         after
       });
       return result;
@@ -242,18 +267,21 @@ export class AVLTree {
       if (this.getBalanceFactor(node.right) > 0) {
         return this.rotateRightLeft(node);
       }
-      // Right-Right case - marker-only snapshot, then atomic rotation
-      const mark = this.createIntermediateLeftRotation(node);
+      // Right-Right case - Left Rotation with intermediate step
+      const before = this.cloneTree(this.root);
+      const intermediate = this.createIntermediateLeftRotation(node);
       this.animationSteps.push({
-        label: 'Left Rotation (RR) - In Progress',
-        after: mark
+        label: 'Left Rotation - In Progress',
+        before,
+        after: intermediate
       });
 
       const result = this.rotateLeft(node);
       if (this.root === node) this.root = result;
       const after = this.cloneTree(this.root);
       this.animationSteps.push({
-        label: 'Left Rotation (RR) - Complete',
+        label: 'Left Rotation - Complete',
+        before: intermediate,
         after
       });
       return result;
@@ -294,15 +322,6 @@ export class AVLTree {
   insert(value) {
     this.animationSteps = [];
     this.root = this.insertNode(this.root, value);
-
-    // If no rotations occurred, still add a simple step for clarity
-    if (this.animationSteps.length === 0) {
-      const snapshot = this.cloneTree(this.root);
-      this.animationSteps.push({
-        label: `Insert: placed ${value}`,
-        after: snapshot
-      });
-    }
   }
 
   /**
@@ -366,79 +385,7 @@ export class AVLTree {
   }
 
   /**
-   * Search for a value with step-by-step visualization
-   * Creates snapshots for each step of the search
-   * @param {number} value
-   */
-  searchWithSteps(value) {
-    this.animationSteps = [];
-    let current = this.root;
-    let step = 0;
-
-    if (!this.root) {
-      this.animationSteps.push({
-        label: 'Search: Tree is empty',
-        after: null
-      });
-      return;
-    }
-
-    // Initial snapshot at root
-    let snapshot = this.cloneTree(this.root);
-    let targetNode = this.findNodeById(snapshot, current.id);
-    if (targetNode) targetNode.isSearchCurrent = true;
-    this.animationSteps.push({
-      label: `Search: Start at root (${this.root.value})`,
-      after: snapshot
-    });
-
-    // Search iteration with snapshots
-    step = 1;
-    while (current) {
-      if (value === current.value) {
-        // Found
-        snapshot = this.cloneTree(this.root);
-        targetNode = this.findNodeById(snapshot, current.id);
-        if (targetNode) targetNode.isSearchFound = true;
-        this.animationSteps.push({
-          label: `Search: Found node with value ${value}`,
-          after: snapshot
-        });
-        return;
-      } else if (value < current.value) {
-        // Go left
-        snapshot = this.cloneTree(this.root);
-        targetNode = this.findNodeById(snapshot, current.id);
-        if (targetNode) targetNode.isSearchCurrent = true;
-        this.animationSteps.push({
-          label: `Search: ${value} < ${current.value}, go left`,
-          after: snapshot
-        });
-        current = current.left;
-      } else {
-        // Go right
-        snapshot = this.cloneTree(this.root);
-        targetNode = this.findNodeById(snapshot, current.id);
-        if (targetNode) targetNode.isSearchCurrent = true;
-        this.animationSteps.push({
-          label: `Search: ${value} > ${current.value}, go right`,
-          after: snapshot
-        });
-        current = current.right;
-      }
-      step++;
-    }
-
-    // Value not found - reached null
-    snapshot = this.cloneTree(this.root);
-    this.animationSteps.push({
-      label: `Search: Reached null - value ${value} not found`,
-      after: snapshot
-    });
-  }
-
-  /**
-   * Delete a node from the AVL tree (recursive helper) with animation steps
+   * Delete a node from the AVL tree (recursive helper)
    * @param {AVLNode} node 
    * @param {number} value 
    * @returns {AVLNode} Root of the subtree
@@ -452,69 +399,24 @@ export class AVLTree {
     } else if (value > node.value) {
       node.right = this.deleteNode(node.right, value);
     } else {
-      // Node to be deleted found - save snapshot
-      const beforeDelete = this.cloneTree(this.root);
-      const targetInBefore = this.findNodeById(beforeDelete, node.id);
-      if (targetInBefore) targetInBefore.isBeingDeleted = true;
-      this.animationSteps.push({
-        label: `Delete: Found node with value ${value}`,
-        after: beforeDelete
-      });
+      // Node to be deleted found
 
       // Case 1: Node with only one child or no child
       if (!node.left) {
-        const replacement = node.right;
-        const snapshot = this.cloneTree(replacement ? this.root : node.right);
-        this.animationSteps.push({
-          label: `Delete: Node removed (leaf or one child)`,
-          after: this.cloneTreeExcludingValue(this.root, value)
-        });
-        return replacement;
+        return node.right;
       } else if (!node.right) {
-        const replacement = node.left;
-        this.animationSteps.push({
-          label: `Delete: Node removed (leaf or one child)`,
-          after: this.cloneTreeExcludingValue(this.root, value)
-        });
-        return replacement;
+        return node.left;
       }
 
       // Case 2: Node with two children
       // Get the inorder successor (smallest in the right subtree)
       const minNode = this.getMinValueNode(node.right);
-      const successorValue = minNode.value;
-      this.animationSteps.push({
-        label: `Delete: Two children - using inorder successor (${successorValue})`,
-        after: this.cloneTree(this.root)
-      });
       node.value = minNode.value;
       node.right = this.deleteNode(node.right, minNode.value);
-      return this.balance(node);
     }
 
     // Balance the node
     return this.balance(node);
-  }
-
-  /**
-   * Clone tree but exclude a specific value (for deletion visualization)
-   * @param {AVLNode} node 
-   * @param {number} excludeValue 
-   * @returns {object} Cloned tree without the excluded value
-   */
-  cloneTreeExcludingValue(node, excludeValue) {
-    if (!node) return null;
-    if (node.value === excludeValue) {
-      // Return null to exclude this node
-      return null;
-    }
-    return {
-      value: node.value,
-      id: node.id,
-      height: node.height,
-      left: this.cloneTreeExcludingValue(node.left, excludeValue),
-      right: this.cloneTreeExcludingValue(node.right, excludeValue)
-    };
   }
 
   /**
@@ -524,14 +426,5 @@ export class AVLTree {
   delete(value) {
     this.animationSteps = [];
     this.root = this.deleteNode(this.root, value);
-
-    // If no rotations occurred (or node not found), still add a simple step for clarity
-    if (this.animationSteps.length === 0) {
-      const snapshot = this.cloneTree(this.root);
-      this.animationSteps.push({
-        label: `Delete: processed ${value}`,
-        after: snapshot
-      });
-    }
   }
 }
