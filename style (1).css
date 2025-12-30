@@ -22,6 +22,11 @@ h1 {
 
 .controls {
   margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
 }
 
 input[type="number"] {
@@ -61,6 +66,14 @@ button:hover {
 button:active {
   transform: translateY(0);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#searchBtn, #deleteBtn {
+  background-color: #FF9800;
+}
+
+#searchBtn:hover, #deleteBtn:hover {
+  background-color: #F57C00;
 }
 
 #prevBtn, #nextBtn {
