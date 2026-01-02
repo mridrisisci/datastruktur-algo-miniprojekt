@@ -1,6 +1,6 @@
-# Datastrukturer & algoritmer --- Eksamensprojekt 
+# DSA --- Eksamensprojekt 
 
-Datamatiker 4.semester - Valgfag: Datastrukturer & algoritmer --- miniprojekt
+Datamatiker -- 4.semester -- Valgfag: DSA (Datastrukturer & algoritmer) 
 
 ## Screenshot of Running App 
 ![alt text](screenshot-running-app.jpg)
