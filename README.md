@@ -6,17 +6,16 @@ Datamatiker -- 4.semester -- Valgfag: DSA (Datastrukturer & algoritmer)
 ![alt text](screenshot-running-app.jpg)
 
 ## Deloyed version of the App
-https://mridrisisci.github.io/datastruktur-algo-miniprojekt/
+https://mridrisisci.github.io/DSA-AVL-Tree/
 
 ## Beskrivelse af projektet
 
-Dette projekt handler om at demonstrere visuelt hvordan algoritmen der er udviklet af de 2 russere Georgy Adelson-Velsky and Evgenii Landis i 1962. Demonstrationen lægger vægt på at vise hvad der sker trin for trin. Projektet lægger vægt på indsættelse og balancering, men AVL-tree understøtter også operationerne sletning og søgning
+Projektet handler om at implementere en algoritme og visuelt fremvise hvordan algoritmen sker trin for trin for en given operation. Min visualisering lægger vægt på at fremvise processen for indsættelsesoperationen for et AVL-tree. Denne proces ser man trin for trin med udgangspunkt i hvordan logikken er skrevet i AVLTree.js. 
 
-Der er udarbejdet en visuel demonstration af en indsættelsesalgoritme og sikret at man kan se hvad der sker trin for trin. Man kan navigere i webapplikationen ved at bruge knapperne ”previous” og ”next” og ”insert”. Det anbefales at man bruger det klassiske eksempel med 30,20,10. Dette gør man ved at indsætte de vilkårlige værdier ved at bruge ”insert”-knappen. Hertil vil man se disse værdier blive oprettet som noder i diagrammet. 
+Man kan anvende webapplikationen ved at køre sin webserver lokalt på sin maskine. Herefter besøger man webstedet – typisk localhost:5500. Man bliver mødt af et blankt kanvas og 3 knapper – insert, previous og next. Disse knapper bruges til at udforske funktionaliteten af indsættelsesoperationen. 
 
-Man vil se at der sker en rotation automatisk i det man indsætter alle værdierne. Efter indsættelse af værdierne bruger man knapperne ”previous” og next til at se før og efter tistand af indsættelsesalgoritmen.
+Man kan tage udgangspunkt i eksemplet 30,20,10. Man indsætter dem enkeltvis i den rækkefølge, det er skrevet. Resultat af indsættelsen for eksemplet ovenfor skaber en BST-struktur. Ved at klikke på next og previous knapperne kan man følge med trin for trin i hvordan BST-strukturen konceptuelt balancerer sig. Formålet med balanceringen er at opnå et selvbalancerende binært søgetræ aka. AVL-tree. 
 
-Diagrammet efter rotationen vil have rykket værdien 30 ned til højre, så værdien ligger på rodens højre barn og værdien 20 vil nu ligge øverst og til sidst vil værdien 10 ligge på rodens venstre barn, da tallet 10 er lavere end 20. 
 
 ## Teknologier
 
@@ -29,7 +28,7 @@ Diagrammet efter rotationen vil have rykket værdien 30 ned til højre, så vær
 ## Funktionalitet
 
 - Indsæt et tal via inputfeltet og tryk *Insert*.
-- Tallet indsættes i AVL-træet som i et binært søgetræ (venstre < rod < højre).
+- Tallet indsættes i AVL-træet som i et binært søgetræ.
 - Højder og balancefaktorer beregnes, og der udføres rotationer ved ubalance.
 - Efter hver indsættelse gemmes et snapshot af træet.
 - Med *Previous* / *Next* kan man bladre mellem snapshots og se træets udvikling trin for trin.
@@ -42,10 +41,8 @@ Diagrammet efter rotationen vil have rykket værdien 30 ned til højre, så vær
 	python -m http.server 8000
 	```
 
-	og gå til `http://localhost:8000` i browseren.
+	og gå til `http://localhost:[PORT]` i browseren.
 2. Indsæt tal i feltet og tryk *Insert* for at se træet blive opbygget og balanceret.
 
 ## Kort om algoritmen
-
-Et AVL-træ er et selvbalancerende binært søgetræ. Efter hver indsættelse opdateres højderne for noderne, og balancefaktoren (venstre højde minus højre højde) beregnes. Hvis forskellen bliver for stor, udføres en eller to rotationer, så træet bevarer en højde på cirka $\log n$. Det giver logaritmisk tid for søgning og indsættelse, også i værste fald.
 
