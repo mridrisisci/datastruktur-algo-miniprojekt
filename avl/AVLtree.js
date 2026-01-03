@@ -178,7 +178,7 @@ export class AVLTree {
 
       // for SVG
       const before = this.cloneTree(this.root);
-      const intermediate = this.createIntermediateRightRotation(node);
+      const intermediate = this.createIntermediateRightRotation(node); // LL-case (visuelt)
       this.animationSteps.push({
         label: 'Right Rotation - In Progress',
         before,
@@ -187,7 +187,7 @@ export class AVLTree {
       // svg - ends
 
 
-      const result = this.rotateRight(node);
+      const result = this.rotateRight(node); // LL-case -> rotation | new root is set
       if (this.root === node) this.root = result;
       const after = this.cloneTree(this.root);
 
@@ -208,7 +208,7 @@ export class AVLTree {
 
       // svg 
       const before = this.cloneTree(this.root);
-      const intermediate = this.createIntermediateLeftRotation(node);
+      const intermediate = this.createIntermediateLeftRotation(node); // RR-case (visuelt)
       this.animationSteps.push({
         label: 'Left Rotation - In Progress',
         before,
@@ -216,7 +216,7 @@ export class AVLTree {
       });
       // svg - ends 
 
-      const result = this.rotateLeft(node);
+      const result = this.rotateLeft(node); // RR-case -> rotation | new root is set
       if (this.root === node) this.root = result;
 
       // svg 
